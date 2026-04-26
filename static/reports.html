@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reports — Disaster MIS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; }
+    .navbar { background: #c0392b; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; color: white; }
+    .navbar h1 { font-size: 18px; }
+    .logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-left: 16px; }
+    .nav-links { background: #922b21; display: flex; gap: 4px; padding: 8px 28px; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+    .content { padding: 28px; }
+    h2 { color: #333; margin-bottom: 20px; font-size: 20px; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h3 { font-size: 15px; color: #333; margin-bottom: 16px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 7px; font-size: 13px; outline: none; }
+    input:focus, select:focus { border-color: #c0392b; }
+    .btn { padding: 10px 20px; background: #c0392b; color: white; border: none; border-radius: 7px; cursor: pointer; font-size: 13px; }
+    .btn:hover { background: #a93226; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; background: #f8f8f8; color: #555; font-weight: 600; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.critical   { background: #fde8e8; color: #c0392b; }
+    .badge.high       { background: #fef3e2; color: #e67e22; }
+    .badge.medium     { background: #eaf6ff; color: #2980b9; }
+    .badge.low        { background: #eafaf1; color: #27ae60; }
+    .badge.pending    { background: #fef3e2; color: #e67e22; }
+    .badge.assigned   { background: #eaf6ff; color: #2980b9; }
+    .badge.inprogress { background: #f3eaff; color: #8e44ad; }
+    .badge.resolved   { background: #eafaf1; color: #27ae60; }
+    .success { color: green; font-size: 13px; margin-top: 10px; display: none; }
+    .spinner { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+    .spinner::before {
+      content: ''; display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #ddd; border-top-color: #c0392b;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="navbar">
+  <h1>Smart Disaster Response MIS</h1>
+  <div style="display:flex;align-items:center">
+    <span style="font-size:13px;opacity:.9" id="username">User</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+<div class="nav-links">
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/reports.html" class="active">Reports</a>
+  <a href="/teams.html">Teams</a>
+  <a href="/inventory.html">Inventory</a>
+  <a href="/finance.html">Finance</a>
+</div>
+<div class="content">
+  <h2>Emergency Reports</h2>
+  <div class="card">
+    <h3>Create New Report</h3>
+    <div class="form-grid">
+      <div>
+        <label>Location</label>
+        <input type="text" id="location" placeholder="e.g. Korangi, Karachi">
+      </div>
+      <div>
+        <label>Disaster Type</label>
+        <select id="disaster-type">
+          <option>Flood</option>
+          <option>Earthquake</option>
+          <option>Fire</option>
+          <option>Landslide</option>
+          <option>Drought</option>
+        </select>
+      </div>
+      <div>
+        <label>Severity</label>
+        <select id="severity">
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+          <option>Critical</option>
+        </select>
+      </div>
+      <div>
+        <label>Citizen Name</label>
+        <input type="text" id="citizen-name" placeholder="Optional">
+      </div>
+      <div>
+        <label>Citizen Contact</label>
+        <input type="text" id="citizen-contact" placeholder="Optional">
+      </div>
+      <div>
+        <label>Event ID</label>
+        <input type="number" id="event-id" placeholder="e.g. 1">
+      </div>
+    </div>
+    <button class="btn" onclick="createReport()">Submit Report</button>
+    <p class="success" id="success-msg">Report created successfully!</p>
+  </div>
+  <div class="card">
+    <h3>All Active Reports</h3>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Location</th><th>Type</th><th>Severity</th><th>Status</th><th>Operator</th><th>Reported At</th></tr>
+      </thead>
+      <tbody id="reports-table">
+        <tr><td colspan="7" class="spinner">Fetching data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!token) window.location.href = '/';
+  document.getElementById('username').textContent = user.Name || 'User';
+  function logout() { localStorage.clear(); window.location.href = '/'; }
+  function badge(text) {
+    const cls = text ? text.toLowerCase().replace(' ','') : '';
+    return `<span class="badge ${cls}">${text}</span>`;
+  }
+  async function loadReports() {
+    const res  = await fetch('/api/reports', { headers: { 'Authorization': 'Bearer ' + token } });
+    const data = await res.json();
+    document.getElementById('reports-table').innerHTML = data.map(r => `
+      <tr>
+        <td>${r.ReportID}</td>
+        <td>${r.Location}</td>
+        <td>${r.DisasterType}</td>
+        <td>${badge(r.SeverityLevel)}</td>
+        <td>${badge(r.Status)}</td>
+        <td>${r.AssignedOperator || '—'}</td>
+        <td>${new Date(r.ReportedAt).toLocaleDateString()}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" style="text-align:center;color:#aaa">No reports</td></tr>';
+  }
+  async function createReport() {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        location:        document.getElementById('location').value,
+        disaster_type:   document.getElementById('disaster-type').value,
+        severity:        document.getElementById('severity').value,
+        citizen_name:    document.getElementById('citizen-name').value,
+        citizen_contact: document.getElementById('citizen-contact').value,
+        event_id:        document.getElementById('event-id').value || null
+      })
+    });
+    if (res.ok) {
+      // ← CLEAR dashboard cache so it reloads fresh data
+      localStorage.removeItem('reports');
+      localStorage.removeItem('stock');
+
+      document.getElementById('success-msg').style.display = 'block';
+      setTimeout(() => document.getElementById('success-msg').style.display = 'none', 3000);
+      loadReports();
+    }
+  }
+  loadReports();
+</script>
+</body>
+</html>

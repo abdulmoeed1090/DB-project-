@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventory — Disaster MIS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; }
+    .navbar { background: #c0392b; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; color: white; }
+    .navbar h1 { font-size: 18px; }
+    .logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-left: 16px; }
+    .nav-links { background: #922b21; display: flex; gap: 4px; padding: 8px 28px; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+    .content { padding: 28px; }
+    h2 { color: #333; margin-bottom: 20px; font-size: 20px; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h3 { font-size: 15px; color: #333; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; background: #f8f8f8; color: #555; font-weight: 600; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.sufficient        { background: #eafaf1; color: #27ae60; }
+    .badge.low-stock---alert { background: #fde8e8; color: #c0392b; }
+    .badge.out-of-stock      { background: #f0f0f0; color: #888; }
+    .badge.reorder-soon      { background: #fef3e2; color: #e67e22; }
+    .filter-row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .filter-btn { padding: 7px 16px; border: 1px solid #ddd; border-radius: 7px; background: white; cursor: pointer; font-size: 13px; }
+    .filter-btn.active { background: #c0392b; color: white; border-color: #c0392b; }
+    .spinner { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+    .spinner::before {
+      content: ''; display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #ddd; border-top-color: #c0392b;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="navbar">
+  <h1>Smart Disaster Response MIS</h1>
+  <div style="display:flex;align-items:center">
+    <span style="font-size:13px;opacity:.9" id="username">User</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+<div class="nav-links">
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/reports.html">Reports</a>
+  <a href="/teams.html">Teams</a>
+  <a href="/inventory.html" class="active">Inventory</a>
+  <a href="/finance.html">Finance</a>
+</div>
+<div class="content">
+  <h2>Warehouse Inventory</h2>
+  <div class="card">
+    <h3>Stock Summary</h3>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterStock('all', this)">All Stock</button>
+      <button class="filter-btn" onclick="filterStock('alerts', this)">Low Stock Alerts</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Warehouse</th><th>Resource</th><th>Type</th><th>Quantity</th><th>Threshold</th><th>Status</th></tr>
+      </thead>
+      <tbody id="inventory-table">
+        <tr><td colspan="6" class="spinner">Fetching data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!token) window.location.href = '/';
+  document.getElementById('username').textContent = user.Name || 'User';
+  function logout() { localStorage.clear(); window.location.href = '/'; }
+  function badge(text) {
+    const cls = text ? text.toLowerCase().replace(/ /g, '-') : '';
+    return `<span class="badge ${cls}">${text}</span>`;
+  }
+  async function loadInventory(url) {
+    document.getElementById('inventory-table').innerHTML =
+      '<tr><td colspan="6" class="spinner">Fetching data...</td></tr>';
+    const res  = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    const data = await res.json();
+    document.getElementById('inventory-table').innerHTML = data.map(i => `
+      <tr>
+        <td>${i.WarehouseLocation}</td>
+        <td>${i.ResourceName}</td>
+        <td>${i.ResourceType}</td>
+        <td>${i.Quantity}</td>
+        <td>${i.ThresholdLevel}</td>
+        <td>${badge(i.StockStatus)}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="text-align:center;color:#aaa">No data</td></tr>';
+  }
+  function filterStock(type, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadInventory(type === 'alerts' ? '/api/inventory/alerts' : '/api/inventory');
+  }
+  loadInventory('/api/inventory');
+</script>
+</body>
+</html>
