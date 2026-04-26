@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Audit Log — Disaster MIS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; }
+    .navbar { background: #c0392b; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; color: white; }
+    .navbar h1 { font-size: 18px; }
+    .logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-left: 16px; }
+    .nav-links { background: #922b21; display: flex; gap: 4px; padding: 8px 28px; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+    .content { padding: 28px; }
+    h2 { color: #333; margin-bottom: 20px; font-size: 20px; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h3 { font-size: 15px; color: #333; margin-bottom: 16px; }
+    .filter-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn { padding: 7px 16px; border: 1px solid #ddd; border-radius: 7px; background: white; cursor: pointer; font-size: 13px; }
+    .filter-btn.active { background: #c0392b; color: white; border-color: #c0392b; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; background: #f8f8f8; color: #555; font-weight: 600; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.insert { background: #eafaf1; color: #27ae60; }
+    .badge.update { background: #eaf6ff; color: #2980b9; }
+    .badge.delete { background: #fde8e8; color: #c0392b; }
+    .badge.approve { background: #f3eaff; color: #8e44ad; }
+    .badge.reject  { background: #fde8e8; color: #c0392b; }
+    .badge.low_stock_alert { background: #fef3e2; color: #e67e22; }
+    .badge.stock_update    { background: #eaf6ff; color: #2980b9; }
+    .spinner { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+    .spinner::before {
+      content: ''; display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #ddd; border-top-color: #c0392b;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="navbar">
+  <h1>Smart Disaster Response MIS</h1>
+  <div style="display:flex;align-items:center">
+    <span style="font-size:13px;opacity:.9" id="username">User</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+<div class="nav-links">
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/reports.html">Reports</a>
+  <a href="/teams.html">Teams</a>
+  <a href="/inventory.html">Inventory</a>
+  <a href="/finance.html">Finance</a>
+  <a href="/hospitals.html">Hospitals</a>
+  <a href="/approvals.html">Approvals</a>
+  <a href="/audit.html" class="active">Audit Log</a>
+</div>
+<div class="content">
+  <h2>Audit Log</h2>
+
+  <div class="card">
+    <h3>System Activity Trail</h3>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterLog('all', this)">All</button>
+      <button class="filter-btn" onclick="filterLog('INSERT', this)">Inserts</button>
+      <button class="filter-btn" onclick="filterLog('UPDATE', this)">Updates</button>
+      <button class="filter-btn" onclick="filterLog('APPROVE', this)">Approvals</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>User</th><th>Role</th><th>Action</th><th>Table</th><th>Record</th><th>Old Value</th><th>New Value</th><th>Timestamp</th></tr>
+      </thead>
+      <tbody id="audit-table">
+        <tr><td colspan="9" class="spinner">Fetching data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!token) window.location.href = '/';
+  document.getElementById('username').textContent = user.Name || 'User';
+  function logout() { localStorage.clear(); window.location.href = '/'; }
+
+  let allLogs = [];
+
+  function badge(text) {
+    const cls = text ? text.toLowerCase().replace(/ /g,'_') : '';
+    return `<span class="badge ${cls}">${text}</span>`;
+  }
+
+  function renderLogs(logs) {
+    document.getElementById('audit-table').innerHTML = logs.map(l => `
+      <tr>
+        <td>${l.LogID}</td>
+        <td>${l.ActorName}</td>
+        <td>${l.ActorRole}</td>
+        <td>${badge(l.Action)}</td>
+        <td>${l.TableAffected}</td>
+        <td>${l.RecordID}</td>
+        <td title="${l.OldValue||''}">${l.OldValue ? l.OldValue.substring(0,30)+'...' : '—'}</td>
+        <td title="${l.NewValue||''}">${l.NewValue ? l.NewValue.substring(0,30)+'...' : '—'}</td>
+        <td>${new Date(l.LogTimestamp).toLocaleString()}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="9" style="text-align:center;color:#aaa">No logs</td></tr>';
+  }
+
+  function filterLog(action, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = action === 'all' ? allLogs : allLogs.filter(l => l.Action === action);
+    renderLogs(filtered);
+  }
+
+  async function loadAudit() {
+    const res  = await fetch('/api/audit', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.status === 401) { logout(); return; }
+    allLogs = await res.json();
+    renderLogs(allLogs);
+  }
+
+  loadAudit();
+</script>
+</body>
+</html>

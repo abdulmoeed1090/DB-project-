@@ -9,6 +9,9 @@ from routes.reports   import reports_bp
 from routes.teams     import teams_bp
 from routes.inventory import inventory_bp
 from routes.finance   import finance_bp
+from routes.hospitals import hospitals_bp
+from routes.approvals import approvals_bp
+from routes.audit     import audit_bp
 
 load_dotenv()
 
@@ -23,8 +26,10 @@ app.register_blueprint(reports_bp)
 app.register_blueprint(teams_bp)
 app.register_blueprint(inventory_bp)
 app.register_blueprint(finance_bp)
+app.register_blueprint(hospitals_bp)
+app.register_blueprint(approvals_bp)
+app.register_blueprint(audit_bp)
 
-# Pre-warm the connection pool on startup
 with app.app_context():
     from db import get_connection, release_connection
     for _ in range(3):
@@ -43,12 +48,11 @@ def home():
 def static_files(filename):
     return send_from_directory('static', filename)
 
-
 @app.route('/api/test/finance')
 def test_finance():
     from db import query
     try:
-        rows = query("SELECT * FROM vw_FinancialSummaryPerEvent")
+        rows = query("SELECT TOP 5 * FROM Donation")
         return jsonify(rows)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

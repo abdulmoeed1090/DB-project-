@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Approvals — Disaster MIS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; }
+    .navbar { background: #c0392b; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; color: white; }
+    .navbar h1 { font-size: 18px; }
+    .logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-left: 16px; }
+    .nav-links { background: #922b21; display: flex; gap: 4px; padding: 8px 28px; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+    .content { padding: 28px; }
+    h2 { color: #333; margin-bottom: 20px; font-size: 20px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab { padding: 8px 20px; border: 1px solid #ddd; border-radius: 7px; background: white; cursor: pointer; font-size: 13px; }
+    .tab.active { background: #c0392b; color: white; border-color: #c0392b; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h3 { font-size: 15px; color: #333; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; background: #f8f8f8; color: #555; font-weight: 600; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.pending  { background: #fef3e2; color: #e67e22; }
+    .badge.approved { background: #eafaf1; color: #27ae60; }
+    .badge.rejected { background: #fde8e8; color: #c0392b; }
+    .badge.resource   { background: #eaf6ff; color: #2980b9; }
+    .badge.deployment { background: #f3eaff; color: #8e44ad; }
+    .badge.finance    { background: #eafaf1; color: #27ae60; }
+    .btn-approve { padding: 5px 12px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+    .btn-reject  { padding: 5px 12px; background: #c0392b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; }
+    .btn-approve:hover { background: #219a52; }
+    .btn-reject:hover  { background: #a93226; }
+    .spinner { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+    .spinner::before {
+      content: ''; display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #ddd; border-top-color: #c0392b;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="navbar">
+  <h1>Smart Disaster Response MIS</h1>
+  <div style="display:flex;align-items:center">
+    <span style="font-size:13px;opacity:.9" id="username">User</span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+<div class="nav-links">
+  <a href="/dashboard.html">Dashboard</a>
+  <a href="/reports.html">Reports</a>
+  <a href="/teams.html">Teams</a>
+  <a href="/inventory.html">Inventory</a>
+  <a href="/finance.html">Finance</a>
+  <a href="/hospitals.html">Hospitals</a>
+  <a href="/approvals.html" class="active">Approvals</a>
+  <a href="/audit.html">Audit Log</a>
+</div>
+<div class="content">
+  <h2>Approval Workflow</h2>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('pending', this)">Pending</button>
+    <button class="tab" onclick="showTab('all', this)">All Approvals</button>
+  </div>
+
+  <div id="tab-pending">
+    <div class="card">
+      <h3>Pending Approval Requests</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Type</th><th>Ref ID</th><th>Requested By</th><th>Role</th><th>Waiting</th><th>Action</th></tr>
+        </thead>
+        <tbody id="pending-table">
+          <tr><td colspan="7" class="spinner">Fetching data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-all" style="display:none">
+    <div class="card">
+      <h3>All Approval Requests</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Type</th><th>Ref ID</th><th>Requested By</th><th>Status</th><th>Reviewed By</th><th>Remarks</th></tr>
+        </thead>
+        <tbody id="all-table">
+          <tr><td colspan="7" class="spinner">Fetching data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!token) window.location.href = '/';
+  document.getElementById('username').textContent = user.Name || 'User';
+  function logout() { localStorage.clear(); window.location.href = '/'; }
+
+  function badge(text) {
+    const cls = text ? text.toLowerCase() : '';
+    return `<span class="badge ${cls}">${text}</span>`;
+  }
+
+  function showTab(tab, btn) {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-pending').style.display = tab === 'pending' ? 'block' : 'none';
+    document.getElementById('tab-all').style.display     = tab === 'all'     ? 'block' : 'none';
+    if (tab === 'all') loadAll();
+  }
+
+  async function apiFetch(url, opts={}) {
+    const res = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      ...opts
+    });
+    if (res.status === 401) { logout(); return null; }
+    return res.json();
+  }
+
+  async function approve(id) {
+    await apiFetch(`/api/approvals/${id}/approve`, { method: 'PATCH' });
+    loadPending();
+  }
+
+  async function reject(id) {
+    await apiFetch(`/api/approvals/${id}/reject`, { method: 'PATCH' });
+    loadPending();
+  }
+
+  async function loadPending() {
+    const data = await apiFetch('/api/approvals/pending');
+    if (!data) return;
+    document.getElementById('pending-table').innerHTML = data.length ? data.map(a => `
+      <tr>
+        <td>${a.ApprovalID}</td>
+        <td>${badge(a.RequestType)}</td>
+        <td>${a.ReferenceID}</td>
+        <td>${a.RequestedByName}</td>
+        <td>${a.RequesterRole}</td>
+        <td>${a.PendingForHours}h ago</td>
+        <td>
+          <button class="btn-approve" onclick="approve(${a.ApprovalID})">Approve</button>
+          <button class="btn-reject"  onclick="reject(${a.ApprovalID})">Reject</button>
+        </td>
+      </tr>
+    `).join('') : '<tr><td colspan="7" style="text-align:center;color:#aaa">No pending approvals</td></tr>';
+  }
+
+  async function loadAll() {
+    const data = await apiFetch('/api/approvals');
+    if (!data) return;
+    document.getElementById('all-table').innerHTML = data.map(a => `
+      <tr>
+        <td>${a.ApprovalID}</td>
+        <td>${badge(a.RequestType)}</td>
+        <td>${a.ReferenceID}</td>
+        <td>${a.RequestedByName}</td>
+        <td>${badge(a.Status)}</td>
+        <td>${a.ReviewedByName || '—'}</td>
+        <td>${a.Remarks || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  loadPending();
+</script>
+</body>
+</html>
